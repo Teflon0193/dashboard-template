@@ -21,7 +21,11 @@ import GeneralLedger from './pages/finance/GeneralLedger';
 import FinanceOverview from './pages/finance/FinanceOverview ';
 import ApplicantForm from './pages/hr/ApplicantForm';
 import EmployeeList from './pages/hr/EmployeeList';
+import EmployeeDetails from './pages/hr/EmployeeDetails';
+
 import Attendance from './pages/hr/Attendance';
+import JobPosting from './pages/hr/JobPosting';
+import JobDetails  from './pages/hr/JobDetails';
 
 
 function App() {
@@ -49,6 +53,10 @@ function App() {
         <Route path="/hr/applicants" element={<ApplicantForm />} />
         <Route path="/hr/attendance"  element={<Attendance />}/>
         <Route path="/hr/employees" element={<EmployeeList />} />
+        <Route path="/hr/employees/:id" element={<EmployeeDetails />} />
+
+        <Route path="/hr/job-posting" element={<JobPosting />} />
+        <Route path="/hr/job-posting/hr/job-details/:id" element={<JobDetails />} />
       </Routes>
     </>
   );
