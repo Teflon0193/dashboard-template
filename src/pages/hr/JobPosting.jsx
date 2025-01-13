@@ -1,20 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Table, Button, Tag, Tooltip, Select, Tabs } from 'antd';
-import { PlusOutlined, EyeOutlined, UserOutlined  } from '@ant-design/icons';
+import { Table, Button, Tag, Tooltip, Select, Tabs, Modal, Form, Input, DatePicker, message } from 'antd';
+import { PlusOutlined, EyeOutlined, UserOutlined } from '@ant-design/icons';
 import 'antd/dist/antd.css';
 import Sidebar from '../../partials/Sidebar';
 import Header from '../../partials/Header';
 
 const { Option } = Select;
 const { TabPane } = Tabs;
+const { TextArea } = Input;
 
 function JobPosting() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState('All locations');
   const [selectedDepartment, setSelectedDepartment] = useState('All departments');
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [form] = Form.useForm();
 
   // Job Counters
   const [activeJobs, setActiveJobs] = useState(0);
@@ -22,30 +25,25 @@ function JobPosting() {
 
   const navigate = useNavigate();
 
-  // Fetch jobs from backend API
   useEffect(() => {
+    fetchJobs();
+  }, []);
+
+  const fetchJobs = () => {
     setLoading(true);
     axios
-      .get('http://localhost:8080/api/job-postings') 
+      .get('http://localhost:8080/api/job-postings')
       .then((response) => {
         const data = response.data;
         setJobs(data);
 
-        // Calculate active job count (status === 'open')
         setActiveJobs(data.filter((job) => job.status === 'open').length);
-
-        // Calculate archived job count (status === 'closed')
         setArchivedJobs(data.filter((job) => job.status === 'closed').length);
       })
-      .catch((error) => {
-        console.error('Error fetching jobs:', error);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, []);
+      .catch((error) => console.error('Error fetching jobs:', error))
+      .finally(() => setLoading(false));
+  };
 
-  // Define table columns
   const columns = [
     {
       title: 'TITLE',
@@ -58,27 +56,14 @@ function JobPosting() {
       ),
     },
     {
-      title: 'LOCATION',
-      dataIndex: 'location',
-      key: 'location',
-    },
-    {
       title: 'DEPARTMENT',
       dataIndex: 'department',
       key: 'department',
     },
     {
-        title: 'CANDIDATES',
-        key: 'candidates',
-        render: (record) =>
-          record.candidates ? (
-            <div className="flex items-center">
-              <UserOutlined style={{ marginRight: 4 }} />
-              <span>{record.candidates}</span>
-            </div>
-          ) : (
-            <span>—</span>
-          ),
+      title: 'LOCATION',
+      dataIndex: 'location',
+      key: 'location',
     },
     {
       title: 'STATUS',
@@ -96,85 +81,66 @@ function JobPosting() {
       key: 'publishDate',
     },
     {
-        title: 'VIEW DETAILS',
-        key: 'actions',
-        render: (_, record) => (
-          <Tooltip title="View Job Details">
-            <Button
-              type="link"
-              icon={<EyeOutlined />}
-              onClick={() => navigate(`/hr/job-posting/hr/job-details/${record.id}`)}
-            />
-          </Tooltip>
+      title: 'VIEW DETAILS',
+      key: 'actions',
+      render: (_, record) => (
+        <Tooltip title="View Job Details">
+          <Button
+            type="link"
+            icon={<EyeOutlined />}
+            onClick={() => navigate(`/hr/job-posting/hr/job-details/${record.id}`)}
+          />
+        </Tooltip>
       ),
     },
   ];
 
-  // Filter jobs based on selected location and department
   const filteredJobs = jobs.filter(
     (job) =>
       (selectedLocation === 'All locations' || job.location === selectedLocation) &&
       (selectedDepartment === 'All departments' || job.department === selectedDepartment)
   );
 
+  const handleOpenModal = () => {
+    setIsModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalVisible(false);
+    form.resetFields();
+  };
+
+  const handleAddJob = (values) => {
+    const newJob = {
+      ...values,
+      publishDate: values.publishDate.format('YYYY-MM-DD'),
+    };
+
+    axios
+      .post('http://localhost:8080/api/job-postings', newJob)
+      .then(() => {
+        message.success('Job added successfully!');
+        handleCloseModal();
+        fetchJobs();
+      })
+      .catch((error) => {
+        console.error('Error adding job:', error);
+        message.error('Failed to add job.');
+      });
+  };
+
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar */}
       <Sidebar />
-
-      {/* Content Area */}
       <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
-        {/* Header */}
         <Header />
-
-        {/* Main Content */}
         <div className="p-6 bg-white shadow rounded-lg m-4">
-          {/* Page Header */}
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-2xl font-bold">Hiring</h1>
-            <Button type="primary" icon={<PlusOutlined />} size="large">
+            <Button type="primary" size="large" onClick={handleOpenModal}>
               Add a Job
             </Button>
           </div>
-
-          {/* Job Filters */}
-          <div className="flex justify-between mb-4">
-            {/* Job Tabs */}
-            <Tabs defaultActiveKey="1">
-              <TabPane tab={`Active Jobs (${activeJobs})`} key="1" />
-              <TabPane tab={`Draft Jobs`} key="2" />
-              <TabPane tab={`Archived Jobs (${archivedJobs})`} key="3" />
-            </Tabs>
-
-            {/* Dropdown Filters */}
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              {/* Locations Dropdown */}
-              <Select
-                defaultValue="All locations"
-                style={{ width: 150 }}
-                onChange={(value) => setSelectedLocation(value)}
-              >
-                <Option value="All locations">All locations</Option>
-                <Option value="Company HQ">Company HQ</Option>
-                <Option value="Remote">Remote</Option>
-              </Select>
-
-              {/* Departments Dropdown */}
-              <Select
-                defaultValue="All departments"
-                style={{ width: 150 }}
-                onChange={(value) => setSelectedDepartment(value)}
-              >
-                <Option value="All departments">All departments</Option>
-                <Option value="Accounting">Accounting</Option>
-                <Option value="Office">Office</Option>
-                <Option value="Customer Service">Customer Service</Option>
-                <Option value="Sales">Sales</Option>
-              </Select>
-            </div>
-          </div>
-
-          {/* Job Table */}
           <Table
             dataSource={filteredJobs}
             columns={columns}
@@ -184,6 +150,69 @@ function JobPosting() {
           />
         </div>
       </div>
+      <Modal
+        title="Add a New Job"
+        visible={isModalVisible}
+        onCancel={handleCloseModal}
+        footer={null}
+      >
+        <Form form={form} layout="vertical" onFinish={handleAddJob}>
+          <Form.Item name="jobTitle" label="Job Title" rules={[{ required: true, message: 'Please enter the job title!' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="department" label="Department" rules={[{ required: true, message: 'Please select the department!' }]}>
+            <Select placeholder="Select department">
+              <Option value="Accounting">Accounting</Option>
+              <Option value="Office">Office</Option>
+              <Option value="Customer Service">Customer Service</Option>
+              <Option value="Sales">Sales</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="location" label="Location" rules={[{ required: true, message: 'Please select the location!' }]}>
+           <Input />
+          </Form.Item>
+          <Form.Item name="employmentType" label="Employment Type" rules={[{ required: true, message: 'Please enter the employment type!' }]}>
+          <Select placeholder="Select employmentType">
+              <Option value="Parttime">Part-Time</Option>
+              <Option value="Fulltime">Full-Time</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="compensation" label="Compensation" rules={[{ required: true, message: 'Please enter the compensation!' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="experience" label="Experience" rules={[{ required: true, message: 'Please enter the required experience!' }]}>
+            <TextArea rows={4} />
+          </Form.Item>
+          <Form.Item name="jobDescription" label="Job Description" rules={[{ required: true, message: 'Please enter the job description!' }]}>
+            <TextArea rows={4} />
+          </Form.Item>
+          <Form.Item name="applicationRequirements" label="Application Requirements" rules={[{ required: true, message: 'Please enter the application requirements!' }]}>
+            <TextArea rows={3} />
+          </Form.Item>
+          <Form.Item name="publishDate" label="Publish Date" rules={[{ required: true, message: 'Please select the publish date!' }]}>
+            <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="status" label="Status" rules={[{ required: true, message: 'Please select the status!' }]}>
+            <Select placeholder="Select status">
+              <Option value="open">Open</Option>
+              <Option value="draft">Draft</Option>
+              <Option value="closed">Closed</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item>
+          <div style={{ display: 'flex', gap: '10px' }}>
+             {/* Add Job Button */}
+            <Button type="primary" htmlType="submit" block>
+               Add Job
+            </Button>
+             {/* Return Button */}
+            <Button type="default" block onClick={handleCloseModal}>
+               Return
+            </Button>
+         </div>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }
